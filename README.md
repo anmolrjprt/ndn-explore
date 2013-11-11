@@ -1,6 +1,6 @@
 NDN Explore
 
-This utility issues recursive queries in the style of the 'ndnls' command line utility to explore the naemspace.
+This utility issues recursive queries in the style of the 'ndnls' command line utility to explore the namespace.
 
 Dependencies:
 
