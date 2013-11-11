@@ -1,0 +1,60 @@
+<html>
+<head>
+<script type="text/javascript" src="http://static.jstree.com/v.1.0rc2/jquery.js"></script>
+<script type="text/javascript" src="http://static.jstree.com/v.1.0rc2/jquery.jstree.js"></script>
+<script type="text/javascript" src="../../build/ndn-js.js"></script>
+
+<script type="text/javascript">
+var comp = [];
+$(document).ready(function() {
+    $(function () {
+        $("#tree").jstree({ 
+            "json_data" : {
+                "data" : [
+                    { 
+                        "data" : "/", 
+                        "attr" : { "id" : "root.id" }, 
+                        /*"children" : [ { "data" : "child1",
+                                         "attr" : { "id" : "child1.id" },
+                                         "children" : [ ] }
+                                     ]*/
+                    },
+                ]
+            },
+            "plugins" : [ "themes", "json_data", "crrm" ]
+        });
+    });
+    console.log("root.id")
+    $("#root\\.id").click(function() {
+        NameEnumeration.getComponents(ndn, new Name("/"), onComponents);
+        console.log("Name Enum Called !");
+        $("#tree").jstree("create", $("#root\\.id"), "inside",  { "data" : comp[0], "attr" : {"id" : "child.id"}},
+                          function() { alert("added"); }, true);
+        $("#tree").jstree("open_node", $("#root\\.id"));
+    });
+});
+
+	var ndn = new NDN({host: "localhost"});
+    
+    function onComponents(components)
+    {
+      if (components == null)
+        result.innerHTML += "[unrecognized prefix]<br/>";
+      else if (components.length == 0)
+        result.innerHTML += ".<br/>";
+      else {
+        for (var i in components)
+          comp.push(new Name([components[i]]).to_uri());
+      }
+    }
+    
+</script>
+</head>
+
+<body>
+
+<div id="tree" name="tree"></div>
+
+<input type="button" id="add" value="add" />
+</body>
+</html>
