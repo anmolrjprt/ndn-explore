@@ -1,0 +1,345 @@
+<?xml version = "1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"DTD/xhtml1-strict.dtd">
+<!-- 
+	NDN Explore Application
+	*This is ndnls inspired browser based namespace expolrer, written by: 
+ 	*Anmol Rajpurohit <anmol.rajpurohit@gmail.com>
+-->
+<html xmlns = "http://www.w3.org/1999/xhtml">
+<meta charset="UTF-8">
+
+<style>
+
+  #wrapper{
+    width:100%;
+    height:480px;
+    font:12px arial,sans-serif;
+    line-height:16px;
+  }
+
+  #help{
+    margin-top:13%; 
+    clear:both;
+	margin-left: 5%;
+    width:100%;
+    font:13px arial,sans-serif;
+    line-height:16px;
+  }
+  
+  #disp_segment{
+    width:100%;
+    float:right;
+    margin-left:5%;
+    margin-bottom:1%; 
+    text-align:center;
+    font-weight:bold;
+  }
+  
+  #ndnexplore{
+    width:23%;
+    float:left;
+    margin-left:5%;
+    text-align:right;
+    font-weight:bold;
+  }
+
+  #promptmsg{
+    width:15%;
+    float:left;
+    margin-left:5%;
+	color:red;
+    text-align:left;
+    font-weight:bold;
+  }
+
+  #tree {
+   width:43%;
+   height:80%;
+   overflow:auto;
+   float:left;
+   margin-left:5%;
+   margin-bottom:10px;
+   background:white;
+   margin-top:1%;   
+   background:#eeeeee;
+  }
+
+  #action{
+    width:43%;
+    float:right;
+    margin-right:5%;
+    text-align: center;
+    font-weight:bold;
+  }
+
+  #download{
+    width:90%;
+    height:20%;
+    overflow:auto;
+    margin-bottom:20px;
+    max-height:20%;
+    margin-left:5%;
+    margin-top:1%;
+    background:#eeeeee;
+    font-size:14px;
+  }
+    
+  #display_log {
+    width:43%;
+    height:80%;
+    float:right;
+    overflow:auto;
+    margin-bottom:10px;
+    max-height:90%;
+    margin-right:5%;
+    margin-top:1%;
+    background:#eeeeee;
+    font-size:10px;
+  }
+  
+</style>
+
+<head>
+<title>NDN Explore</title>
+<script type="text/javascript" src="http://ether.remap.ucla.edu/anmol/jstree-v.pre1.0/_lib/jquery.js"></script>
+<script type="text/javascript" src="http://ether.remap.ucla.edu/anmol/jstree-v.pre1.0/jquery.jstree.js"></script>
+<script type="text/javascript" src="http://ether.remap.ucla.edu/anmol/ndn-js-master/build/ndn-js.js"></script>
+<script type="text/javascript">
+
+hostip="B.ws.ndn.ucla.edu";
+var ndn = new NDN({host: hostip});
+var no=0, height =0, first =1, val = 1, download = 0, child_node=0, howmanychildren = "unlimited";
+var evt, node, logger, text, isOpen, num, dat;
+var template = new Interest();
+ 
+function displayResult(browser){
+	val = browser;
+};
+
+$(document).ready(function() {
+    $(function () {
+        $("#tree").jstree({
+        	"json_data" : {
+            	"data" : [{ 
+                	data : "/", 
+					state : "leaf",                        
+					attr : { "id" : "root", "value" : "/"}
+                    }]
+            },
+            "plugins" : [ "themes", "json_data", "crrm", "ui" ]
+        })
+	
+	.bind("select_node.jstree close_node.jstree",function(event, data) {
+	 	text = data.rslt.obj.attr('value');
+		isOpen = data.rslt.obj.hasClass("jstree-open");
+		dat = data.rslt.obj.attr('id');
+		logger = document.getElementById('display_log');
+		node = document.getElementById('tree');
+		document.getElementById('download').innerHTML = null;
+		if(!isOpen && event.type == "select_node"){
+			var stop = 0;
+			if(val == undefined){
+				stop=1;
+				alert("Please select one of the options provided above NDN Explorer Tree !");
+			}
+			else{
+				if(val == 2){			
+					howmanychildren=prompt("Please enter the maximum number of children to list: ","unlimited");
+					if(howmanychildren !=null && howmanychildren!=""){
+						if(howmanychildren < 0){
+							alert("Wrong input ! Please enter a number or unlimited ");
+							stop=1;
+						}
+						if (isNaN(howmanychildren) && howmanychildren != null && howmanychildren != ""){	
+							howmanychildren = howmanychildren.toLowerCase();
+							if(!(howmanychildren === "unlimited")){
+								alert("Wrong input ! Please enter a number or unlimited |");
+								stop=1;
+							}
+							else
+							howmanychildren = 2000;
+						}
+					}
+					else{
+						alert("Wrong input ! Please enter a number or unlimited ");
+						stop=1;
+					}
+				}
+				else{
+					howmanychildren=document.getElementById("num").value;
+					if(howmanychildren !=null && howmanychildren!=""){
+						if(howmanychildren < 0){
+							alert("Wrong input ! Please enter a number or unlimited ");
+							stop=1;
+						}
+						if (isNaN(howmanychildren) && howmanychildren != null && howmanychildren != ""){	
+							howmanychildren = howmanychildren.toLowerCase();
+							if(!(howmanychildren === "unlimited")){
+								alert("Wrong input ! Please enter a number or unlimited ");
+								stop=1;
+							}
+							else
+							howmanychildren = 2000;
+						}
+					}
+					else{
+						alert("Wrong input ! Please enter a number or unlimited ");
+						stop=1;
+					}
+				}
+			}
+			if(stop != 1){
+				var value = text;
+				var name = value.split("/");
+				num = name.length;
+	   			template.childSelector = 0;
+				template.scope = 2;
+				excludecomps.length = 0;
+				child_node = 0;
+				download = 0;
+				ndn.expressInterest(new Name(text), new ndnlsClosure(), template);
+				logger.innerHTML += displayTime()+"Express interest: ".fontcolor("blue").bold()+ text + "<br />";		
+			}
+		}
+		if(isOpen &&  event.type=="select_node"){
+			$("#tree").jstree("remove",data.rslt.obj.find('li'));
+			logger.innerHTML += displayTime()+"Remove children of: ".fontcolor("red").bold()+ text + "<br />";
+			logger.scrollTop = logger.scrollHeight;
+			$("#"+data.rslt.obj.attr('id')).addClass("jstree-leaf").addClass("jstree-closed");
+		}
+	});
+
+    var ndnlsClosure = function ndnlsClosure() {
+	   	Closure.call(this);
+	};
+	var template = new Interest();
+	excludecomps = [];
+	ndnlsClosure.prototype.upcall = function(kind, upcallInfo) {
+		//console.log("Closure.upcall() executed.");
+		if (kind == Closure.UPCALL_FINAL) {
+			// Do nothing.
+			//console.log("Final!!")
+		} 
+		else if (kind == Closure.UPCALL_CONTENT || kind == Closure.UPCALL_CONTENT_UNVERIFIED) {
+			var content = upcallInfo.contentObject;
+			var name = content.name.to_uri();
+			var n = name.split("/");
+			if(download == 1){
+				//console.log("Closure.upcall: content signature verification pass.");
+					
+				var content = upcallInfo.contentObject;
+				nameStr = escape(content.name.getName());
+				document.getElementById('download').innerHTML = DataUtils.toString(content.content);
+				document.getElementById('promptmsg').style.display='block';
+				setTimeout(function(){document.getElementById('promptmsg').style.display='none';},3000);
+			}
+			if (n[num-1] == undefined){
+				if(child_node == 0 && download ==0){
+					text = text.substring(0, text.length - 1);
+					ndn.expressInterest(new Name(text), new ndnlsClosure());
+					download = 1;
+					logger.innerHTML += displayTime()+"Node Expanded : No child URI under prefix: ".fontcolor("brown").bold() + text+ "<br />";	
+				    logger.scrollTop = logger.scrollHeight;
+				}
+				return Closure.RESULT_OK; 
+			}
+			if (first==1 && howmanychildren!=0){
+				var strng = "/"+n[num-1]+"/";
+				$("#tree").jstree("create",$("#"+dat), "inside",  { "data" : n[num-1], "state" : "leaf", "attr" : { "id" : "child"+no, "value" : strng}}, null, true);
+				$("#"+"child"+no).addClass("inactive");//.addClass("active");
+				logger.innerHTML += displayTime()+" Add URI: ".fontcolor("green").bold() + strng + "<br/>";
+				logger.scrollTop = logger.scrollHeight;
+				first=0; no++;
+				howmanychildren--;
+				child_node++;
+			}
+			else if(howmanychildren!=0){
+				strng = text+n[num-1]+"/";
+				$("#tree").jstree("create",$("#"+dat), "inside",  { "data" : n[num-1], "state" : "leaf", "attr" : { "id" : "child"+no, "value" : strng} }, null, true);
+				howmanychildren--;
+				logger.innerHTML += displayTime()+" Add URI: ".fontcolor("green").bold() + strng + "<br/>";
+				logger.scrollTop = logger.scrollHeight;
+				child_node++;
+				no++;
+			}
+			if(howmanychildren !=0){
+				excludecomps.push(Name.fromEscapedString(n[num-1]));
+				excludecomps.sort();
+				template.InterestLifetime = 8000;
+				template.childSelector = 0;
+				template.exclude = new Exclude(excludecomps);
+				ndn.expressInterest(new Name(text), new ndnlsClosure(), template);
+			}		
+		} 
+		else if (kind == Closure.UPCALL_CONTENT_BAD){
+			var content = upcallInfo.contentObject;
+			console.log("Closure.upcall: content signature verification fail.");
+            console.log("Host: " + ndn.host + ":" + ndn.port);
+			if (content.signature.signature)
+				console.log("Signature: " + DataUtils.toHex(content.signature.signature).toLowerCase());
+			if (content.signature.Witness)
+				console.log("Witness: " + DataUtils.toHex(content.signature.Witness).toLowerCase());
+		} 
+		else if (kind == Closure.UPCALL_INTEREST_TIMED_OUT) {
+			return Closure.RESULT_OK;
+		}
+		return Closure.RESULT_OK;
+	};		
+	}, true);
+	 
+	function displayTime() {
+	    var str = "";
+	    var currentTime = new Date()
+	    var hours = currentTime.getHours()
+	    var minutes = currentTime.getMinutes()
+	    var seconds = currentTime.getSeconds()
+	    var milliseconds = currentTime.getMilliseconds(); 
+	    if (minutes < 10) {
+       		minutes = "0" + minutes;
+        }
+	    if (seconds < 10) {
+    		seconds = "0" + seconds;
+	    }
+	    if (milliseconds < 10) {
+      		milliseconds = "0" + milliseconds;
+  	    }	
+    	    str += hours + ":" + minutes + ":" + seconds + "." + milliseconds + " ";
+    	    return str;
+	}
+	
+});		
+		
+</script>
+	
+</head>
+<body>
+<div id= "wrapper">
+<h2> NDN Explore (Alpha)</h2>
+<p id="hostname"><i><strong>Remote daemon: </strong></i>borges.metwi.ucla.edu (via websockets proxy B.ws.ndn.ucla.edu:9696)<br/> 
+This utility issues recursive queries in the style of the 'ndnls' command line utility to explore the naemspace. Click the root node '/' to begin expanding the tree.</p>
+<div id="ndnexplore"> NDN Explorer Tree </div>
+<div id="promptmsg" style="display:none;"> Content displayed !</div>
+<div id="action"> Events </div>
+<div id="tree" name="tree"></div>
+<div id="display_log"></div>
+<div id="disp_segment">Content</div>
+<div id="download"> </div>
+</div>
+
+<div id="help">
+<p>Note: The browser must be able to connect to remote port 9696, which may not be enabled on some firewalls.</p>
+	<form>
+		Options:<br/>
+		<input id="1" type="radio" name="childnum" size="60" onclick="displayResult(this.value)" value="1" checked />		
+		Please enter the maximum number of children to list:
+		<input id="num" type="text" name="num" size="60" style="width:100px;" value="unlimited" /> <br />
+		<input id="2"type="radio" name="childnum" size="60" onclick="displayResult(this.value)" value="2" />
+		Per-node choice of maximum children<br />
+	</form>
+<p>By Anmol Rajpurohit using <a href="http://github.com/named-data/ndn-js/">NDN-JS</a>.
+Send comments & bugs to <a href="mailto:anmol.rajpurohit@gmail.com">Anmol</a>.
+</div>
+</body>
+</html>
+
